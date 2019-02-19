@@ -93,8 +93,8 @@ int main(int argc, char** argv)
 	//создание шейдерной программы из двух файлов с исходниками шейдеров
 	//используется класс-обертка ShaderProgram
 	std::unordered_map<GLenum, std::string> shaders;
-	shaders[GL_VERTEX_SHADER]   = "vertex.glsl";
-	shaders[GL_FRAGMENT_SHADER] = "fragment.glsl";
+	shaders[GL_VERTEX_SHADER]   = "../shaders/vertex.glsl";
+	shaders[GL_FRAGMENT_SHADER] = "../shaders/fragment.glsl";
 	ShaderProgram program(shaders); GL_CHECK_ERRORS;
 
   glfwSwapInterval(1); // force 60 frames per second
