@@ -76,7 +76,6 @@ int main(int argc, char** argv)
 		return -1;
 	}
 	
-  glfwSetCursorPosCallback (window, mouseMove);
   glfwSetWindowSizeCallback(window, windowResize);
 
 	glfwMakeContextCurrent(window); 
@@ -94,7 +93,8 @@ int main(int argc, char** argv)
 	//используется класс-обертка ShaderProgram
 	std::unordered_map<GLenum, std::string> shaders;
 	shaders[GL_VERTEX_SHADER]   = "../shaders/vertex.glsl";
-	shaders[GL_FRAGMENT_SHADER] = "../shaders/fragment.glsl";
+  /*shaders[GL_FRAGMENT_SHADER] = "../shaders/fragment.glsl";*/
+	shaders[GL_FRAGMENT_SHADER] = "../shaders/fragment1.glsl";
 	ShaderProgram program(shaders); GL_CHECK_ERRORS;
 
   glfwSwapInterval(1); // force 60 frames per second
