@@ -6,6 +6,8 @@
 #define float4x4 mat4
 #define float3x3 mat3
 
+#define SPHERE 0
+
 in float2 fragmentTexCoord;
 
 layout(location = 0) out vec4 fragColor;
@@ -20,10 +22,20 @@ uniform float4x4 g_rayMatrix;
 
 uniform float4   g_bgColor = float4(0,0,1,1);
 
+struct Primitive
+{
+    float3 a;
+    float b;
+    int type;
+};
+
+uniform Primitive objects[1] = Primitive[1](
+        Primitive(float3(0.0, 0.0, -4.0), 0.05, SPHERE));
+
 float3 EyeRayDir(float x, float y, float w, float h)
 {
 	float fov = 3.141592654f/(2.0f); 
-  float3 ray_dir;
+    float3 ray_dir;
   
 	ray_dir.x = x+0.5f - (w/2.0f);
 	ray_dir.y = y+0.5f - (h/2.0f);
@@ -94,7 +106,14 @@ float shortestDistanceToSurface(float3 orig, float3 marchingDirection,
 {
     float depth = start;
     for (int i = 0; i < MAX_MARCHING_STEPS; i++) {
-        float dist = sphereSDF(orig + marchingDirection * depth, 0.05);
+        float dist;
+        
+        switch (objects[0].type) {
+        case SPHERE:
+            dist = sphereSDF(orig + marchingDirection * depth, objects[0].b);
+            break;
+        }
+        
         if (dist < EPSILON) {
             return depth;
         }
@@ -105,17 +124,6 @@ float shortestDistanceToSurface(float3 orig, float3 marchingDirection,
     }
     return end;
 }
-
-struct Sphere {
-    float3 center;
-    float radius;
-
-    /*Sphere(const float3 &c, const float &r)
-    {
-      center = c;
-      radius = r;
-    }*/
-};
 
 bool ray_intersect(const float3 orig, const float3 dir)
 {
@@ -138,7 +146,7 @@ float3 cast_ray(const float3 orig, const float3 dir) {
 }
 
 void main(void)
-{	
+{
 
   float w = float(g_screenWidth);
   float h = float(g_screenHeight);
@@ -150,7 +158,7 @@ void main(void)
   
   // generate initial ray
   //
-  float3 ray_pos = float3(0,0,-4); 
+  float3 ray_pos = objects[0].a;
   float3 ray_dir = EyeRayDir(x,y,w,h);
  
   // transorm ray with matrix
@@ -162,16 +170,6 @@ void main(void)
   // 
   float tmin = 1e38f;
   float tmax = 0;
- 
-  /*if(!RayBoxIntersection(ray_pos, ray_dir, g_bBoxMin, g_bBoxMax, tmin, tmax))
-  {
-    fragColor = g_bgColor;
-    return;
-  }
-	
-	float alpha = 1.0f;
-	float3 color = RayMarchConstantFog(tmin, tmax, alpha);
-	fragColor = float4(color,0)*(1.0f-alpha) + g_bgColor*alpha;*/
 
   fragColor = float4(cast_ray(ray_pos, ray_dir), 1);
 }
