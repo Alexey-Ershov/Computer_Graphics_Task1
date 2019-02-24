@@ -8,6 +8,7 @@
 
 #define SPHERE 0
 
+
 in float2 fragmentTexCoord;
 
 layout(location = 0) out vec4 fragColor;
@@ -22,6 +23,7 @@ uniform float4x4 g_rayMatrix;
 
 uniform float4   g_bgColor = float4(0,0,1,1);
 
+
 struct Primitive
 {
     float3 a;
@@ -29,18 +31,27 @@ struct Primitive
     int type;
 };
 
+struct Light {
+    float3 position;
+    float intensity;
+};
+
+struct Hit
+{
+    bool exist;
+    float distance;
+};
+
+
 uniform Primitive objects[1] = Primitive[1](
         Primitive(float3(-0.4, 0.0, 4.0), 0.05, SPHERE));
+
 
 const int MAX_MARCHING_STEPS = 255;
 const float MIN_DIST = 0.0;
 const float MAX_DIST = 100.0;
 const float EPSILON = 0.0001;
 
-struct Light {
-    float3 position;
-    float intensity;
-};
 
 float sphereSDF(float3 samplePoint, float radius)
 {
@@ -51,6 +62,7 @@ float shortestDistanceToSurface(float3 orig, float3 marchingDirection,
                                 float start, float end)
 {
     float depth = start;
+    
     for (int i = 0; i < MAX_MARCHING_STEPS; i++) {
         float dist;
         
@@ -63,28 +75,37 @@ float shortestDistanceToSurface(float3 orig, float3 marchingDirection,
         if (dist < EPSILON) {
             return depth;
         }
+
         depth += dist;
+
         if (depth >= end) {
             return end;
         }
     }
+
     return end;
 }
 
-bool ray_intersect(const float3 orig, const float3 dir)
+Hit ray_intersect(const float3 orig, const float3 dir)
 {
   float dist = shortestDistanceToSurface(orig, dir, MIN_DIST, MAX_DIST);
 
+  Hit hit;
+  hit.distance = dist;
+
   if (dist > MAX_DIST - EPSILON) {
-      return false;
+      hit.exist = false;
   
   } else {
-      return true;
+      hit.exist = true;
   }
+
+  return hit;
 }
 
 float4 cast_ray(const float3 orig, const float3 dir) {
-    if (!ray_intersect(orig, dir)) {
+    Hit hit = ray_intersect(orig, dir);
+    if (!hit.exist) {
         return float4(0.2, 0.7, 0.8, 1.0); // background color
     }
 
