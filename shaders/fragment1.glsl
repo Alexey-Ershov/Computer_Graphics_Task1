@@ -30,7 +30,7 @@ struct Primitive
 };
 
 uniform Primitive objects[1] = Primitive[1](
-        Primitive(float3(0.0, 0.0, -4.0), 0.05, SPHERE));
+        Primitive(float3(-0.4, 0.0, 4.0), 0.05, SPHERE));
 
 const int MAX_MARCHING_STEPS = 255;
 const float MIN_DIST = 0.0;
@@ -44,7 +44,7 @@ struct Light {
 
 float sphereSDF(float3 samplePoint, float radius)
 {
-    return length(samplePoint) - radius;
+    return distance(samplePoint, objects[0].a) - radius;
 }
 
 float shortestDistanceToSurface(float3 orig, float3 marchingDirection,
@@ -116,7 +116,7 @@ void main(void)
   
   // generate initial ray
   //
-  float3 ray_pos = objects[0].a;
+  float3 ray_pos = float3(0.0, 0.0, 0.0);
   float3 ray_dir = EyeRayDir(x,y,w,h);
  
   // transorm ray with matrix
