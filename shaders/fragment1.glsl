@@ -21,13 +21,14 @@ uniform float3 g_bBoxMax   = float3(+1,+1,+1);
 
 uniform float4x4 g_rayMatrix;
 
-uniform float4   g_bgColor = float4(0,0,1,1);
+uniform float4 g_bgColor = float4(0.2, 0.7, 0.8, 1.0);
 
 
 struct Primitive
 {
     float3 a;
     float b;
+    float4 color;
     int type;
 };
 
@@ -40,26 +41,32 @@ struct Hit
 {
     bool exist;
     float distance;
+    float4 color;
 };
-
-
-uniform Primitive objects[1] = Primitive[1](
-        Primitive(float3(-0.4, 0.0, 4.0), 0.05, SPHERE));
 
 
 const int MAX_MARCHING_STEPS = 255;
 const float MIN_DIST = 0.0;
 const float MAX_DIST = 100.0;
 const float EPSILON = 0.0001;
+const int PRIMIRIVES_NUMBER = 1;
 
 
-float sphereSDF(float3 samplePoint, float radius)
+uniform Primitive objects[PRIMIRIVES_NUMBER] = Primitive[PRIMIRIVES_NUMBER](
+        Primitive(float3(-0.4, 0.0, 4.0),
+                  0.05,
+                  float4(0.4, 0.4, 0.3, 1.0),
+                  SPHERE));
+
+
+float sphereSDF(float3 samplePoint, int index)
 {
-    return distance(samplePoint, objects[0].a) - radius;
+    return distance(samplePoint, objects[index].a) - objects[index].b;
 }
 
 float shortestDistanceToSurface(float3 orig, float3 marchingDirection,
-                                float start, float end)
+                                float start, float end,
+                                int index)
 {
     float depth = start;
     
@@ -68,7 +75,7 @@ float shortestDistanceToSurface(float3 orig, float3 marchingDirection,
         
         switch (objects[0].type) {
         case SPHERE:
-            dist = sphereSDF(orig + marchingDirection * depth, objects[0].b);
+            dist = sphereSDF(orig + marchingDirection * depth, index);
             break;
         }
         
@@ -86,30 +93,54 @@ float shortestDistanceToSurface(float3 orig, float3 marchingDirection,
     return end;
 }
 
-Hit ray_intersect(const float3 orig, const float3 dir)
+Hit ray_intersect(const float3 orig, const float3 dir, int index)
 {
-  float dist = shortestDistanceToSurface(orig, dir, MIN_DIST, MAX_DIST);
+    float dist = shortestDistanceToSurface(orig, dir,
+                                           MIN_DIST, MAX_DIST,
+                                           index);
 
-  Hit hit;
-  hit.distance = dist;
+    Hit hit;
+    hit.distance = dist;
 
-  if (dist > MAX_DIST - EPSILON) {
+    if (dist > MAX_DIST - EPSILON) {
       hit.exist = false;
-  
-  } else {
-      hit.exist = true;
-  }
 
-  return hit;
+    } else {
+      hit.exist = true;
+    }
+
+    hit.color = objects[0].color;
+
+    return hit;
+}
+
+Hit scene_intersect(const float3 orig, const float3 dir)
+{
+    Hit hit;
+    float spheres_dist = MAX_DIST;
+
+    for (int i = 0; i < PRIMIRIVES_NUMBER; i++) {
+        float dist_i = 0;
+
+        hit = ray_intersect(orig, dir, i);
+
+        if (hit.exist && hit.distance < spheres_dist) {
+            spheres_dist = dist_i;
+            /*float3 hit_point = orig + dir * dist_i;
+            N = (hit - spheres[i].center).normalize();*/
+        }
+    }
+    return hit;
 }
 
 float4 cast_ray(const float3 orig, const float3 dir) {
-    Hit hit = ray_intersect(orig, dir);
+    Hit hit = scene_intersect(orig, dir);
+    
     if (!hit.exist) {
-        return float4(0.2, 0.7, 0.8, 1.0); // background color
+        return g_bgColor;
     }
 
-    return float4(0.4, 0.4, 0.3, 1.0);
+    return hit.color;
 }
 
 float3 EyeRayDir(float x, float y, float w, float h)
