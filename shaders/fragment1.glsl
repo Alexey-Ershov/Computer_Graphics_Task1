@@ -42,6 +42,8 @@ struct Hit
     bool exist;
     float distance;
     float4 color;
+    float3 hit_point;
+    float3 N;
 };
 
 
@@ -50,6 +52,7 @@ const float MIN_DIST = 0.0;
 const float MAX_DIST = 100.0;
 const float EPSILON = 0.0001;
 const int PRIMITIVES_NUMBER = 2;
+const int LIGHTS_NUMBER = 1;
 
 
 uniform Primitive objects[PRIMITIVES_NUMBER] = Primitive[PRIMITIVES_NUMBER](
@@ -58,10 +61,15 @@ uniform Primitive objects[PRIMITIVES_NUMBER] = Primitive[PRIMITIVES_NUMBER](
                   float4(0.4, 0.4, 0.3, 1.0),
                   SPHERE),
 
-        Primitive(float3(-0.2, 0.0, 3.3),
+        Primitive(float3(0.0, 0.0, 3.5),
                   0.1,
                   float4(0.3, 0.1, 0.1, 1.0),
                   SPHERE)
+        );
+
+uniform Light lights[LIGHTS_NUMBER] = Light[LIGHTS_NUMBER](
+        Light(float3(-0.2, 0.6, 3.5),
+              3.0)
         );
 
 
@@ -134,16 +142,25 @@ Hit scene_intersect(const float3 orig, const float3 dir)
         if (hit.exist && hit.distance < ret_hit.distance) {
             hitted = true;
             ret_hit = hit;
-            /*float3 hit_point = orig + dir * dist_i;
-            N = (hit - spheres[i].center).normalize();*/
+            ret_hit.hit_point = orig + dir * ret_hit.distance;
+            ret_hit.N = normalize(ret_hit.hit_point - objects[i].a);
         }
     }
 
-    if (!hitted) {
+    if (!hitted) { // Check "if (!hit.exist) {...}"
         ret_hit = hit;
     }
 
     return ret_hit;
+}
+
+float max(float arg1, float arg2)
+{
+    if (arg1 > arg2) {
+        return arg1;
+    } else {
+        return arg2;
+    }
 }
 
 float4 cast_ray(const float3 orig, const float3 dir) {
@@ -153,7 +170,15 @@ float4 cast_ray(const float3 orig, const float3 dir) {
         return g_bgColor;
     }
 
-    return hit.color;
+    float light_intensity = 0;
+    
+    for (int i = 0; i < LIGHTS_NUMBER; i++) {
+        float3 light_dir = normalize(lights[i].position - hit.hit_point);
+        light_intensity += lights[i].intensity *
+                max(0.0f, dot(light_dir, hit.N));
+    }
+
+    return hit.color * light_intensity;
 }
 
 float3 EyeRayDir(float x, float y, float w, float h)
