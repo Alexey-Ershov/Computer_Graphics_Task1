@@ -49,14 +49,20 @@ const int MAX_MARCHING_STEPS = 255;
 const float MIN_DIST = 0.0;
 const float MAX_DIST = 100.0;
 const float EPSILON = 0.0001;
-const int PRIMIRIVES_NUMBER = 1;
+const int PRIMITIVES_NUMBER = 2;
 
 
-uniform Primitive objects[PRIMIRIVES_NUMBER] = Primitive[PRIMIRIVES_NUMBER](
-        Primitive(float3(-0.4, 0.0, 4.0),
-                  0.05,
+uniform Primitive objects[PRIMITIVES_NUMBER] = Primitive[PRIMITIVES_NUMBER](
+        Primitive(float3(-0.4, 0.0, 3.5),
+                  0.23,
                   float4(0.4, 0.4, 0.3, 1.0),
-                  SPHERE));
+                  SPHERE),
+
+        Primitive(float3(-0.2, 0.0, 3.3),
+                  0.1,
+                  float4(0.3, 0.1, 0.1, 1.0),
+                  SPHERE)
+        );
 
 
 float sphereSDF(float3 samplePoint, int index)
@@ -109,7 +115,7 @@ Hit ray_intersect(const float3 orig, const float3 dir, int index)
       hit.exist = true;
     }
 
-    hit.color = objects[0].color;
+    hit.color = objects[index].color;
 
     return hit;
 }
@@ -117,20 +123,27 @@ Hit ray_intersect(const float3 orig, const float3 dir, int index)
 Hit scene_intersect(const float3 orig, const float3 dir)
 {
     Hit hit;
-    float spheres_dist = MAX_DIST;
+    Hit ret_hit;
+    ret_hit.distance = MAX_DIST;
 
-    for (int i = 0; i < PRIMIRIVES_NUMBER; i++) {
-        float dist_i = 0;
+    bool hitted = false;
 
+    for (int i = 0; i < PRIMITIVES_NUMBER; i++) {
         hit = ray_intersect(orig, dir, i);
 
-        if (hit.exist && hit.distance < spheres_dist) {
-            spheres_dist = dist_i;
+        if (hit.exist && hit.distance < ret_hit.distance) {
+            hitted = true;
+            ret_hit = hit;
             /*float3 hit_point = orig + dir * dist_i;
             N = (hit - spheres[i].center).normalize();*/
         }
     }
-    return hit;
+
+    if (!hitted) {
+        ret_hit = hit;
+    }
+
+    return ret_hit;
 }
 
 float4 cast_ray(const float3 orig, const float3 dir) {
