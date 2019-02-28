@@ -24,11 +24,18 @@ uniform float4x4 g_rayMatrix;
 uniform float4 g_bgColor = float4(0.2, 0.7, 0.8, 1.0);
 
 
+struct Material
+{
+    float4 diffuse_color;
+    float2 albedo;
+    float specular_exponent;
+};
+
 struct Primitive
 {
     float3 a;
     float b;
-    float4 color;
+    Material material;
     int type;
 };
 
@@ -41,7 +48,7 @@ struct Hit
 {
     bool exist;
     float distance;
-    float4 color;
+    Material material;
     float3 hit_point;
     float3 N;
 };
@@ -56,19 +63,23 @@ const int LIGHTS_NUMBER = 1;
 
 
 uniform Primitive objects[PRIMITIVES_NUMBER] = Primitive[PRIMITIVES_NUMBER](
-        Primitive(float3(-0.4, 0.0, 3.5),
-                  0.23,
-                  float4(0.4, 0.4, 0.3, 1.0),
+        Primitive(float3(-0.4, 0.0, 2),
+                  0.25,
+                  Material(float4(0.0, 0.169, 0.212, 1.0),
+                           float2(0.7,  0.5),
+                           20),
                   SPHERE),
 
-        Primitive(float3(0.0, 0.0, 3.5),
-                  0.1,
-                  float4(0.3, 0.1, 0.1, 1.0),
+        Primitive(float3(0.4, 0.0, 3.5),
+                  0.25,
+                  Material(float4(0.3, 0.1, 0.1, 1.0),
+                           float2(0.9,  0.8),
+                           8),
                   SPHERE)
         );
 
 uniform Light lights[LIGHTS_NUMBER] = Light[LIGHTS_NUMBER](
-        Light(float3(-0.2, 0.6, 3.5),
+        Light(float3(0.0, 0.0, 5),
               3.0)
         );
 
@@ -123,9 +134,14 @@ Hit ray_intersect(const float3 orig, const float3 dir, int index)
       hit.exist = true;
     }
 
-    hit.color = objects[index].color;
+    hit.material = objects[index].material;
 
     return hit;
+}
+
+float3 reflect(const float3 I, const float3 N)
+{
+    return I - N * 2.f * (I * N);
 }
 
 Hit scene_intersect(const float3 orig, const float3 dir)
@@ -170,15 +186,26 @@ float4 cast_ray(const float3 orig, const float3 dir) {
         return g_bgColor;
     }
 
-    float light_intensity = 0;
+    float diffuse_light_intensity = 0;
+    float specular_light_intensity = 0;
     
     for (int i = 0; i < LIGHTS_NUMBER; i++) {
         float3 light_dir = normalize(lights[i].position - hit.hit_point);
-        light_intensity += lights[i].intensity *
+        
+        diffuse_light_intensity += lights[i].intensity *
                 max(0.0f, dot(light_dir, hit.N));
+        
+        specular_light_intensity += pow(
+                max(0.f, -dot(reflect(-light_dir, hit.N), dir)),
+                hit.material.specular_exponent) * lights[i].intensity;
     }
 
-    return hit.color * light_intensity;
+    return hit.material.diffuse_color *
+           diffuse_light_intensity *
+           hit.material.albedo[0] + 
+           float4(1.0, 1.0, 1.0, 1.0) *
+           specular_light_intensity *
+           hit.material.albedo[1];
 }
 
 float3 EyeRayDir(float x, float y, float w, float h)
