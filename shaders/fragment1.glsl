@@ -8,6 +8,7 @@
 
 #define SPHERE 0
 #define TORUS 1
+#define CAPSULE 2
 
 
 in float2 fragmentTexCoord;
@@ -17,12 +18,12 @@ layout(location = 0) out vec4 fragColor;
 uniform int g_screenWidth;
 uniform int g_screenHeight;
 
-uniform float3 g_bBoxMin   = float3(-1,-1,-1);
-uniform float3 g_bBoxMax   = float3(+1,+1,+1);
+/*uniform float3 g_bBoxMin   = float3(-1,-1,-1);
+uniform float3 g_bBoxMax   = float3(+1,+1,+1);*/
 
 uniform float4x4 g_rayMatrix;
 
-uniform float4 g_bgColor = float4(0.1, 0.1, 0.1, 1.0);
+uniform float4 g_bgColor = float4(0.05, 0.05, 0.05, 1.0);
 
 
 struct Material
@@ -37,6 +38,8 @@ struct Primitive
     float3 center;
     float b;
     float2 c;
+    float3 d;
+    float3 e;
     Material material;
     int type;
 };
@@ -60,50 +63,70 @@ const int MAX_MARCHING_STEPS = 255;
 const float MIN_DIST = 0.0;
 const float MAX_DIST = 100.0;
 const float EPSILON = 0.0001;
-const int PRIMITIVES_NUMBER = 3;
-const int LIGHTS_NUMBER = 1;
+const int PRIMITIVES_NUMBER = 5;
+const int LIGHTS_NUMBER = 2;
 
 
 uniform Primitive objects[PRIMITIVES_NUMBER] = Primitive[PRIMITIVES_NUMBER](
-        Primitive(float3(-1.2, 0.0, 0.1),
+        
+        Primitive(float3(-1.9, -0.3, -1.0), // Red Sphere
+                  0.9,
+                  float2(0, 0),
+                  float3(0, 0, 0),
+                  float3(0, 0, 0),
+                  Material(float4(0.3, 0.1, 0.1, 1.0),
+                           float2(0.3,  0.25),
+                           8),
+                  SPHERE),
+
+        Primitive(float3(-0.75, 0.5, 0.1), // Blue Sphere.
                   0.25,
                   float2(0, 0),
+                  float3(0, 0, 0),
+                  float3(0, 0, 0),
                   Material(float4(0.0, 0.169, 0.212, 1.0),
                            float2(0.7,  0.5),
                            20),
                   SPHERE),
 
-        Primitive(float3(-1.9, -0.3, -1.0),
-                  0.9,
-                  float2(0, 0),
-                  Material(float4(0.3, 0.1, 0.1, 1.0),
-                           float2(0.9,  0.8),
-                           8),
-                  SPHERE),
-
-        Primitive(float3(-1.75, 0.4, -4.5),
+        Primitive(float3(-2.4, -0.15, -5.25), // Green Sphere.
                   0.25,
                   float2(0, 0),
+                  float3(0, 0, 0),
+                  float3(0, 0, 0),
                   Material(float4(0.023, 0.125, 0.047, 1.0),
-                           float2(0.7,  1.5),
-                           17),
-                  SPHERE)/*,
+                           float2(0.5,  0.5),
+                           20),
+                  SPHERE),
 
-        Primitive(float3(0.0, -2.3, -1.6),
+        Primitive(float3(-1.9, -0.3, -1.0), /*float3(0.0, -2.3, -1.6)*/
                   0,
-                  float2(0.35, 0.15),
+                  float2(1.2, 0.15),
+                  float3(0, 0, 0),
+                  float3(0, 0, 0),
                   Material(float4(0.3, 0.1, 0.1, 1.0),
-                           float2(1.3,  0.8),
+                           float2(0.3,  0.25),
                            8),
-                  TORUS)*/
+                  TORUS),
+
+        Primitive(float3(-3.5, 0.7, -3), // (2, 2, -2.5)
+                  0.05,
+                  float2(0, 0),
+                  float3(0.25, 0, 0),
+                  float3(0, 0.6, 0.4),
+                  Material(float4(0.3, 0.3, 0.3, 1.0),
+                           float2(0.6,  0.5),
+                           10),
+                  CAPSULE)
         );
 
 uniform Light lights[LIGHTS_NUMBER] = Light[LIGHTS_NUMBER](
+        
         Light(float3(1.75, 2.75, 3.5),
-              7.0)
+              7.0),
 
-        /*Light(float3(0.0, 0.0, -1.6),
-              10.0)*/
+        Light(float3(-3, 0.5, -2), // (-0.6, 0.25, 0.1)
+              5.0)
         );
 
 
@@ -118,6 +141,16 @@ float sdTorus(float3 samplePoint, int index)
     float2 q = vec2(length(samplePoint.xz) - objects[index].c.x,
                     samplePoint.y);
     return length(q) - objects[index].c.y;
+}
+
+float sdCapsule(float3 samplePoint, int index)
+{
+    samplePoint = samplePoint - objects[index].center;
+
+    float3 pa = samplePoint - objects[index].d;
+    float3 ba = objects[index].e - objects[index].d;
+    float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+    return length(pa - ba * h) - objects[index].b;
 }
 
 float shortestDistanceToSurface(float3 orig, float3 marchingDirection,
@@ -136,6 +169,11 @@ float shortestDistanceToSurface(float3 orig, float3 marchingDirection,
 
         case TORUS:
             dist = sdTorus(orig + marchingDirection * depth, index);
+            break;
+
+        case CAPSULE:
+            dist = sdCapsule(orig + marchingDirection * depth, index);
+            break;
         }
         
         if (dist < EPSILON) {
@@ -279,7 +317,7 @@ void main(void)
   
   // generate initial ray
   //
-  float3 ray_pos = float3(0.0, 0.0, 0.0);
+  float3 ray_pos = float3(0.8, 2.25, 3.0);
   float3 ray_dir = EyeRayDir(x,y,w,h);
  
   // transorm ray with matrix
