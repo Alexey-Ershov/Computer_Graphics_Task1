@@ -7,6 +7,7 @@
 #define float3x3 mat3
 
 #define SPHERE 0
+#define TORUS 1
 
 
 in float2 fragmentTexCoord;
@@ -21,7 +22,7 @@ uniform float3 g_bBoxMax   = float3(+1,+1,+1);
 
 uniform float4x4 g_rayMatrix;
 
-uniform float4 g_bgColor = float4(0.2, 0.7, 0.8, 1.0);
+uniform float4 g_bgColor = float4(0.1, 0.1, 0.1, 1.0);
 
 
 struct Material
@@ -33,8 +34,9 @@ struct Material
 
 struct Primitive
 {
-    float3 a;
+    float3 center;
     float b;
+    float2 c;
     Material material;
     int type;
 };
@@ -58,35 +60,64 @@ const int MAX_MARCHING_STEPS = 255;
 const float MIN_DIST = 0.0;
 const float MAX_DIST = 100.0;
 const float EPSILON = 0.0001;
-const int PRIMITIVES_NUMBER = 2;
+const int PRIMITIVES_NUMBER = 3;
 const int LIGHTS_NUMBER = 1;
 
 
 uniform Primitive objects[PRIMITIVES_NUMBER] = Primitive[PRIMITIVES_NUMBER](
-        Primitive(float3(-0.4, 0.0, 2),
+        Primitive(float3(-1.2, 0.0, 0.1),
                   0.25,
+                  float2(0, 0),
                   Material(float4(0.0, 0.169, 0.212, 1.0),
                            float2(0.7,  0.5),
                            20),
                   SPHERE),
 
-        Primitive(float3(0.4, 0.0, 3.5),
-                  0.25,
+        Primitive(float3(-1.9, -0.3, -1.0),
+                  0.9,
+                  float2(0, 0),
                   Material(float4(0.3, 0.1, 0.1, 1.0),
                            float2(0.9,  0.8),
                            8),
-                  SPHERE)
+                  SPHERE),
+
+        Primitive(float3(-1.75, 0.4, -4.5),
+                  0.25,
+                  float2(0, 0),
+                  Material(float4(0.023, 0.125, 0.047, 1.0),
+                           float2(0.7,  1.5),
+                           17),
+                  SPHERE)/*,
+
+        Primitive(float3(0.0, -2.3, -1.6),
+                  0,
+                  float2(0.35, 0.15),
+                  Material(float4(0.3, 0.1, 0.1, 1.0),
+                           float2(1.3,  0.8),
+                           8),
+                  TORUS)*/
         );
 
 uniform Light lights[LIGHTS_NUMBER] = Light[LIGHTS_NUMBER](
-        Light(float3(0.0, 0.0, 5),
-              3.0)
+        Light(float3(1.75, 2.75, 3.5),
+              7.0)
+
+        /*Light(float3(0.0, 0.0, -1.6),
+              10.0)*/
         );
 
 
-float sphereSDF(float3 samplePoint, int index)
+float sdSphere(float3 samplePoint, int index)
 {
-    return distance(samplePoint, objects[index].a) - objects[index].b;
+    return distance(samplePoint, objects[index].center) - objects[index].b;
+}
+
+float sdTorus(float3 samplePoint, int index)
+{
+    samplePoint = samplePoint - objects[index].center;
+    float2 q = vec2(length(samplePoint.xz) - objects[index].c.x,
+                    samplePoint.y);
+    return length(q) - objects[index].c.y;
 }
 
 float shortestDistanceToSurface(float3 orig, float3 marchingDirection,
@@ -98,10 +129,13 @@ float shortestDistanceToSurface(float3 orig, float3 marchingDirection,
     for (int i = 0; i < MAX_MARCHING_STEPS; i++) {
         float dist;
         
-        switch (objects[0].type) {
+        switch (objects[index].type) {
         case SPHERE:
-            dist = sphereSDF(orig + marchingDirection * depth, index);
+            dist = sdSphere(orig + marchingDirection * depth, index);
             break;
+
+        case TORUS:
+            dist = sdTorus(orig + marchingDirection * depth, index);
         }
         
         if (dist < EPSILON) {
@@ -159,7 +193,7 @@ Hit scene_intersect(const float3 orig, const float3 dir)
             hitted = true;
             ret_hit = hit;
             ret_hit.hit_point = orig + dir * ret_hit.distance;
-            ret_hit.N = normalize(ret_hit.hit_point - objects[i].a);
+            ret_hit.N = normalize(ret_hit.hit_point - objects[i].center);
         }
     }
 
@@ -191,6 +225,18 @@ float4 cast_ray(const float3 orig, const float3 dir) {
     
     for (int i = 0; i < LIGHTS_NUMBER; i++) {
         float3 light_dir = normalize(lights[i].position - hit.hit_point);
+
+        float light_distance = length(lights[i].position - hit.hit_point);
+
+        float3 shadow_orig = dot(light_dir, hit.N) < 0 ? 
+                hit.hit_point - hit.N * 1e-3 : hit.hit_point + hit.N * 1e-3;
+        float3 shadow_pt, shadow_N;
+        Hit shadow_hit = scene_intersect(shadow_orig, light_dir);
+
+        if (shadow_hit.exist &&
+                length(shadow_hit.hit_point - shadow_orig) < light_distance) {
+            continue;
+        }
         
         diffuse_light_intensity += lights[i].intensity *
                 max(0.0f, dot(light_dir, hit.N));

@@ -8,7 +8,7 @@
 #include <GLFW/glfw3.h>
 #include <random>
 
-static GLsizei WIDTH = 512, HEIGHT = 512; //размеры окна
+static GLsizei WIDTH = 1024, HEIGHT = 1024; //размеры окна
 
 using namespace LiteMath;
 
